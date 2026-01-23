@@ -37,3 +37,12 @@ func GetUserList() []*UserBasic {
 func CreateUser(user *UserBasic) error {
 	return utils.DB.Create(user).Error
 }
+
+func DeleteUser(user *UserBasic) error {
+	return utils.DB.Delete(user).Error
+}
+
+func UpdateUser(user *UserBasic) error {
+	return utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Updates(user).Error
+	// return utils.DB.Save(user).Error
+}
