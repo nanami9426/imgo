@@ -12,7 +12,7 @@ type UserBasic struct {
 	Name          string
 	Password      string `json:"-"`
 	Phone         string
-	Email         string
+	Email         string `valid:"email"`
 	Identity      string
 	ClientIP      string
 	ClientPort    string
@@ -44,6 +44,7 @@ func DeleteUser(user *UserBasic) (int64, error) {
 }
 
 func UpdateUser(user *UserBasic) (int64, error) {
-	result := utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Update("name", user.Name)
+	// result := utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Update("name", user.Name)
+	result := utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Updates(user)
 	return result.RowsAffected, result.Error
 }

@@ -1,13 +1,10 @@
 package service
 
 import (
+	"github.com/asaskevich/govalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/nanami9426/imgo/models"
 )
-
-type GetUserListResp struct {
-	Data []*models.UserBasic `json:"data"`
-}
 
 type CreateUserReq struct {
 	UserName   string `json:"user_name" form:"user_name" binding:"required"`
@@ -21,14 +18,14 @@ type DeleteUserReq struct {
 
 type UpdateUserReq struct {
 	UserID   uint   `json:"user_id" form:"user_id" binding:"required"`
-	UserName string `json:"user_name" form:"user_name" binding:"required"`
+	UserName string `json:"user_name" form:"user_name"`
+	Email    string `json:"email" form:"email"`
 }
 
 // @Summary 用户列表
 // @Description 返回包含所有用户信息的列表
 // @Tags users
 // @Produce json
-// @Success 200 {object} GetUserListResp
 // @Router /user/user_list [post]
 func GetUserList(c *gin.Context) {
 	user_list, err := models.GetUserList()
@@ -44,14 +41,9 @@ func GetUserList(c *gin.Context) {
 	})
 }
 
-type CreateUserResp struct {
-	Message string `json:"message"`
-}
-
 // @Summary 创建新用户
 // @Tags users
 // @Produce json
-// @Success 200 {object} CreateUserResp
 // @Router /user/create_user [post]
 // @param user_name formData string true "用户名"
 // @param password formData string true "密码"
@@ -114,7 +106,7 @@ func DeleteUser(c *gin.Context) {
 	}
 	if rows == 0 {
 		c.JSON(200, gin.H{
-			"message": "用户不存在或无需修改",
+			"message": "用户不存在",
 		})
 		return
 	}
@@ -128,7 +120,8 @@ func DeleteUser(c *gin.Context) {
 // @Produce json
 // @Router /user/update_user [post]
 // @param user_id formData int true "用户id"
-// @param user_name formData string true "用户名"
+// @param user_name formData string false "用户名"
+// @param email formData string false "邮箱"
 func UpdateUser(c *gin.Context) {
 	req := &UpdateUserReq{}
 	if err := c.ShouldBind(req); err != nil {
@@ -141,6 +134,14 @@ func UpdateUser(c *gin.Context) {
 	user := &models.UserBasic{}
 	user.ID = req.UserID
 	user.Name = req.UserName
+	user.Email = req.Email
+	if _, err := govalidator.ValidateStruct(user); err != nil {
+		c.JSON(200, gin.H{
+			"message": "邮箱格式错误",
+			"err":     err,
+		})
+		return
+	}
 	rows, err := models.UpdateUser(user)
 	if err != nil {
 		c.JSON(200, gin.H{
