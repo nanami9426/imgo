@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nanami9426/imgo/models"
 	"github.com/nanami9426/imgo/router"
 	"github.com/nanami9426/imgo/utils"
 )
@@ -9,7 +8,6 @@ import (
 func main() {
 	utils.InitConfig()
 	utils.InitMySQL()
-	models.GetUserList()
 	r := router.Router()
 	r.Run(":8000")
 }

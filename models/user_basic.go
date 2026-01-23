@@ -10,7 +10,7 @@ import (
 type UserBasic struct {
 	gorm.Model
 	Name          string
-	Password      string
+	Password      string `json:"-"`
 	Phone         string
 	Email         string
 	Identity      string
@@ -28,21 +28,22 @@ func (u *UserBasic) TableName() string {
 	return "user_basic"
 }
 
-func GetUserList() []*UserBasic {
+func GetUserList() ([]*UserBasic, error) {
 	var user_list []*UserBasic
-	utils.DB.Find(&user_list)
-	return user_list
+	result := utils.DB.Find(&user_list)
+	return user_list, result.Error
 }
 
 func CreateUser(user *UserBasic) error {
 	return utils.DB.Create(user).Error
 }
 
-func DeleteUser(user *UserBasic) error {
-	return utils.DB.Delete(user).Error
+func DeleteUser(user *UserBasic) (int64, error) {
+	result := utils.DB.Delete(user)
+	return result.RowsAffected, result.Error
 }
 
-func UpdateUser(user *UserBasic) error {
-	return utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Updates(user).Error
-	// return utils.DB.Save(user).Error
+func UpdateUser(user *UserBasic) (int64, error) {
+	result := utils.DB.Model(&UserBasic{}).Where("id=?", user.ID).Update("name", user.Name)
+	return result.RowsAffected, result.Error
 }
