@@ -33,3 +33,7 @@ func GetUserList() []*UserBasic {
 	utils.DB.Find(&user_list)
 	return user_list
 }
+
+func CreateUser(user *UserBasic) error {
+	return utils.DB.Create(user).Error
+}
