@@ -4,12 +4,14 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/nanami9426/imgo/models"
+	"github.com/nanami9426/imgo/utils"
 )
 
 type CreateUserReq struct {
 	UserName   string `json:"user_name" form:"user_name" binding:"required"`
 	Password   string `json:"password" form:"password" binding:"required"`
 	RePassword string `json:"re_password" form:"re_password" binding:"required"`
+	Email      string `json:"email" form:"email"`
 }
 
 type DeleteUserReq struct {
@@ -48,6 +50,7 @@ func GetUserList(c *gin.Context) {
 // @param user_name formData string true "用户名"
 // @param password formData string true "密码"
 // @param re_password formData string true "确认密码"
+// @param email formData string false "邮箱"
 func CreateUser(c *gin.Context) {
 	req := &CreateUserReq{}
 	if err := c.ShouldBind(req); err != nil {
@@ -67,7 +70,14 @@ func CreateUser(c *gin.Context) {
 		})
 		return
 	}
-	user.Password = password
+	user.Password, _ = utils.HashPassword(password)
+	if !govalidator.IsEmail(req.Email) {
+		c.JSON(200, gin.H{
+			"message": "邮箱格式错误",
+		})
+		return
+	}
+	user.Email = req.Email
 	if err := models.CreateUser(user); err != nil {
 		c.JSON(200, gin.H{
 			"message": "注册失败",
@@ -134,14 +144,13 @@ func UpdateUser(c *gin.Context) {
 	user := &models.UserBasic{}
 	user.ID = req.UserID
 	user.Name = req.UserName
-	user.Email = req.Email
-	if _, err := govalidator.ValidateStruct(user); err != nil {
+	if !govalidator.IsEmail(req.Email) {
 		c.JSON(200, gin.H{
 			"message": "邮箱格式错误",
-			"err":     err,
 		})
 		return
 	}
+	user.Email = req.Email
 	rows, err := models.UpdateUser(user)
 	if err != nil {
 		c.JSON(200, gin.H{

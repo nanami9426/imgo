@@ -12,7 +12,7 @@ type UserBasic struct {
 	Name          string
 	Password      string `json:"-"`
 	Phone         string
-	Email         string `valid:"email"`
+	Email         string
 	Identity      string
 	ClientIP      string
 	ClientPort    string
