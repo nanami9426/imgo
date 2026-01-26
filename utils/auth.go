@@ -3,6 +3,7 @@ package utils
 import (
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,6 +19,12 @@ func HashPassword(password string) (string, error) {
 func CheckPassword(hashed string, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
 	return err == nil
+}
+
+func GenerateUserID() int64 {
+	node, _ := snowflake.NewNode(1)
+	user_id := node.Generate().Int64()
+	return user_id
 }
 
 type Claims struct {

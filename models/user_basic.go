@@ -49,7 +49,7 @@ func DeleteUser(user *UserBasic) (int64, error) {
 
 // 更新用户信息
 func UpdateUser(data map[string]interface{}) (int64, error) {
-	result := utils.DB.Model(&UserBasic{}).Where("id=?", data["ID"]).Updates(data)
+	result := utils.DB.Model(&UserBasic{}).Where("user_id=?", data["UserID"]).Updates(data)
 	return result.RowsAffected, result.Error
 }
 

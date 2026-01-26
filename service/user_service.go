@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/asaskevich/govalidator"
-	"github.com/bwmarrin/snowflake"
 	"github.com/gin-gonic/gin"
 	"github.com/nanami9426/imgo/models"
 	"github.com/nanami9426/imgo/utils"
@@ -20,7 +19,7 @@ type DeleteUserReq struct {
 }
 
 type UpdateUserReq struct {
-	UserID   uint   `json:"user_id" form:"user_id" binding:"required"`
+	UserID   int64  `json:"user_id" form:"user_id" binding:"required"`
 	UserName string `json:"user_name" form:"user_name"`
 	Email    string `json:"email" form:"email"`
 }
@@ -90,8 +89,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 	user.Email = req.Email
-	node, _ := snowflake.NewNode(1)
-	user_id := node.Generate().Int64()
+	user_id := utils.GenerateUserID()
 	user.UserID = user_id
 	if err := models.CreateUser(user); err != nil {
 		c.JSON(200, gin.H{
@@ -163,8 +161,8 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	data_update := map[string]interface{}{
-		"ID":   req.UserID,
-		"Name": req.UserName,
+		"UserID": req.UserID,
+		"Name":   req.UserName,
 	}
 	if "" != req.Email {
 		if models.EmailIsExists(req.Email) {
