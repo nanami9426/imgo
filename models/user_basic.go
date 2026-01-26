@@ -64,3 +64,9 @@ func FindUserByEmail(email string) (UserBasic, int64) {
 	result := utils.DB.Where("email = ?", email).First(&user)
 	return user, result.RowsAffected
 }
+
+func FindUserByUserID(user_id int64) (UserBasic, int64) {
+	var user UserBasic
+	result := utils.DB.Where("user_id = ?", user_id).First(&user)
+	return user, result.RowsAffected
+}

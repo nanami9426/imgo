@@ -16,7 +16,7 @@ type CreateUserReq struct {
 }
 
 type DeleteUserReq struct {
-	UserID uint `json:"user_id" form:"user_id" binding:"required"`
+	UserID int64 `json:"user_id" form:"user_id" binding:"required"`
 }
 
 type UpdateUserReq struct {
@@ -119,9 +119,14 @@ func DeleteUser(c *gin.Context) {
 		})
 		return
 	}
-	user := &models.UserBasic{}
-	user.ID = req.UserID
-	rows, err := models.DeleteUser(user)
+	user, rows := models.FindUserByUserID(req.UserID)
+	if rows == 0 {
+		c.JSON(200, gin.H{
+			"message": "用户不存在",
+		})
+		return
+	}
+	_, err := models.DeleteUser(&user)
 	if err != nil {
 		c.JSON(200, gin.H{
 			"message": "删除失败",
@@ -129,12 +134,7 @@ func DeleteUser(c *gin.Context) {
 		})
 		return
 	}
-	if rows == 0 {
-		c.JSON(200, gin.H{
-			"message": "用户不存在",
-		})
-		return
-	}
+
 	c.JSON(200, gin.H{
 		"message": "删除成功",
 	})
