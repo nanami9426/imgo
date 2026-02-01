@@ -1,15 +1,21 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 var v = viper.New()
-var DB *gorm.DB
+var (
+	DB  *gorm.DB
+	RDB *redis.Client
+	Ctx = context.Background()
+)
 
 func InitConfig() {
 	v.SetConfigName("app")
@@ -35,4 +41,22 @@ func InitMySQL() {
 		panic("failed to connect database")
 	}
 	DB = db
+}
+
+func InitRedis() {
+	addr := fmt.Sprintf(
+		"%s:%d",
+		v.GetString("redis.host"),
+		v.GetInt("redis.port"),
+	)
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: v.GetString("redis.password"),
+		DB:       v.GetInt("redis.db"),
+	})
+	_, err := rdb.Ping(Ctx).Result()
+	if err != nil {
+		panic("failed to connect redis: " + err.Error())
+	}
+	RDB = rdb
 }
