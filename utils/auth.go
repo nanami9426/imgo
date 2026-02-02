@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -8,6 +9,19 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var (
+	defaultJWTSecret = V.GetString("jwt.secret")
+	defaultJWTTTL    = 24 * time.Second
+)
+
+func JWTSecret() []byte {
+	return []byte(defaultJWTSecret)
+}
+
+func JWTTTL() time.Duration {
+	return defaultJWTTTL
+}
 
 func HashPassword(password string) (string, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -34,10 +48,11 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(secret []byte, user_id uint, ttl time.Duration) (string, error) {
+func GenerateToken(secret []byte, user_id uint, role string, ttl time.Duration) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
 		UserID: user_id,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   strconv.FormatUint(uint64(user_id), 10), // 这个token代表的主体
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -47,4 +62,29 @@ func GenerateToken(secret []byte, user_id uint, ttl time.Duration) (string, erro
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return t.SignedString(secret)
+}
+
+func CheckToken(tokenString string, secret []byte) (*Claims, error) {
+	if tokenString == "" {
+		return nil, errors.New("empty token")
+	}
+	if len(secret) == 0 {
+		return nil, errors.New("empty secret")
+	}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&Claims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return secret, nil
+		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
 }

@@ -40,8 +40,8 @@ func GetUserList(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatDatabaseError,
 			"stat":      utils.StatText(utils.StatDatabaseError),
-			"message": "获取用户列表失败",
-			"err":     err.Error(),
+			"message":   "获取用户列表失败",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -66,8 +66,8 @@ func CreateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "参数错误",
-			"err":     err.Error(),
+			"message":   "参数错误",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -79,7 +79,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "两次输入的密码不一致",
+			"message":   "两次输入的密码不一致",
 		})
 		return
 	}
@@ -88,7 +88,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "邮箱格式错误",
+			"message":   "邮箱格式错误",
 		})
 		return
 	}
@@ -96,7 +96,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatConflict,
 			"stat":      utils.StatText(utils.StatConflict),
-			"message": "该邮箱已注册",
+			"message":   "该邮箱已注册",
 		})
 		return
 	}
@@ -107,8 +107,8 @@ func CreateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatDatabaseError,
 			"stat":      utils.StatText(utils.StatDatabaseError),
-			"message": "注册失败",
-			"err":     err.Error(),
+			"message":   "注册失败",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -130,8 +130,8 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "参数错误",
-			"err":     err.Error(),
+			"message":   "参数错误",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -140,7 +140,7 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatNotFound,
 			"stat":      utils.StatText(utils.StatNotFound),
-			"message": "用户不存在",
+			"message":   "用户不存在",
 		})
 		return
 	}
@@ -149,8 +149,8 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatDatabaseError,
 			"stat":      utils.StatText(utils.StatDatabaseError),
-			"message": "删除失败",
-			"err":     err.Error(),
+			"message":   "删除失败",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -175,8 +175,8 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "参数错误",
-			"err":     err.Error(),
+			"message":   "参数错误",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -184,7 +184,7 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "邮箱格式错误",
+			"message":   "邮箱格式错误",
 		})
 		return
 	}
@@ -197,7 +197,7 @@ func UpdateUser(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"stat_code": utils.StatConflict,
 				"stat":      utils.StatText(utils.StatConflict),
-				"message": "该邮箱已注册",
+				"message":   "该邮箱已注册",
 			})
 			return
 		}
@@ -208,8 +208,8 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatDatabaseError,
 			"stat":      utils.StatText(utils.StatDatabaseError),
-			"message": "修改失败",
-			"err":     err.Error(),
+			"message":   "修改失败",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -217,7 +217,7 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatNotFound,
 			"stat":      utils.StatText(utils.StatNotFound),
-			"message": "用户不存在",
+			"message":   "用户不存在",
 		})
 		return
 	}
@@ -240,8 +240,8 @@ func UserLogin(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "参数错误",
-			"err":     err.Error(),
+			"message":   "参数错误",
+			"err":       err.Error(),
 		})
 		return
 	}
@@ -249,7 +249,7 @@ func UserLogin(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInvalidParam,
 			"stat":      utils.StatText(utils.StatInvalidParam),
-			"message": "邮箱格式有误或邮箱不存在",
+			"message":   "邮箱格式有误或邮箱不存在",
 		})
 		return
 	}
@@ -259,14 +259,27 @@ func UserLogin(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatUnauthorized,
 			"stat":      utils.StatText(utils.StatUnauthorized),
-			"message": "密码错误",
+			"message":   "密码错误",
 		})
 		return
 	}
-
+	role := user.Identity
+	if role == "" {
+		role = "user"
+	}
+	token, err := utils.GenerateToken(utils.JWTSecret(), uint(user.UserID), role, utils.JWTTTL())
+	if err != nil {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatInternalError,
+			"stat":      utils.StatText(utils.StatInternalError),
+			"message":   "生成token失败",
+			"err":       err.Error(),
+		})
+		return
+	}
 	c.JSON(200, gin.H{
 		"stat_code": utils.StatSuccess,
 		"stat":      utils.StatText(utils.StatSuccess),
-		"message":   "ok",
+		"token":     token,
 	})
 }

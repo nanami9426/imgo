@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var v = viper.New()
+var V = viper.New()
 var (
 	DB  *gorm.DB
 	RDB *redis.Client
@@ -18,10 +18,10 @@ var (
 )
 
 func InitConfig() {
-	v.SetConfigName("app")
-	v.SetConfigType("yaml")
-	v.AddConfigPath("./config")
-	err := v.ReadInConfig()
+	V.SetConfigName("app")
+	V.SetConfigType("yaml")
+	V.AddConfigPath("./config")
+	err := V.ReadInConfig()
 	if err != nil {
 		panic(err)
 	}
@@ -30,11 +30,11 @@ func InitConfig() {
 func InitMySQL() {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=UTC",
-		v.GetString("mysql.user"),
-		v.GetString("mysql.password"),
-		v.GetString("mysql.host"),
-		v.GetInt("mysql.port"),
-		v.GetString("mysql.db"),
+		V.GetString("mysql.user"),
+		V.GetString("mysql.password"),
+		V.GetString("mysql.host"),
+		V.GetInt("mysql.port"),
+		V.GetString("mysql.db"),
 	)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -46,13 +46,13 @@ func InitMySQL() {
 func InitRedis() {
 	addr := fmt.Sprintf(
 		"%s:%d",
-		v.GetString("redis.host"),
-		v.GetInt("redis.port"),
+		V.GetString("redis.host"),
+		V.GetInt("redis.port"),
 	)
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
-		Password: v.GetString("redis.password"),
-		DB:       v.GetInt("redis.db"),
+		Password: V.GetString("redis.password"),
+		DB:       V.GetInt("redis.db"),
 	})
 	_, err := rdb.Ping(Ctx).Result()
 	if err != nil {
