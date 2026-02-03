@@ -6,18 +6,16 @@ import (
 	"fmt"
 )
 
-var (
-	WSPublishKey = V.GetString("ws.publish_key")
-)
-
+// PublishToRedis 将消息发布到指定 Redis 频道。
 func PublishToRedis(ctx context.Context, channel string, message string) error {
 	if RDB == nil {
 		return errors.New("redis not initialized")
 	}
-	fmt.Println("PublishToRedis: ", message)
+	fmt.Printf("PublishToRedis[%s]: %s\n", channel, message)
 	return RDB.Publish(ctx, channel, message).Err()
 }
 
+// SubscribeFromRedis 订阅 Redis 频道并阻塞等待一条消息（适合一次性拉取）。
 func SubscribeFromRedis(ctx context.Context, channel string) (string, error) {
 	if RDB == nil {
 		return "", errors.New("redis not initialized")

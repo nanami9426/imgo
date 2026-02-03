@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
@@ -12,10 +13,21 @@ import (
 
 var V = viper.New()
 var (
-	DB  *gorm.DB
-	RDB *redis.Client
-	Ctx = context.Background()
+	DB               *gorm.DB
+	RDB              *redis.Client
+	Ctx              = context.Background()
+	WSPublishKey     string
+	DefaultJWTSecret string
+	DefaultJWTTTL    = 60 * time.Second
 )
+
+func InitParam() {
+	// redis_pubsub.go
+	WSPublishKey = V.GetString("ws.public_channel")
+
+	// auth.go
+	DefaultJWTSecret = V.GetString("jwt.secret")
+}
 
 func InitConfig() {
 	V.SetConfigName("app")
@@ -25,6 +37,9 @@ func InitConfig() {
 	if err != nil {
 		panic(err)
 	}
+	InitParam()
+	InitMySQL()
+	InitRedis()
 }
 
 func InitMySQL() {

@@ -10,17 +10,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	defaultJWTSecret = V.GetString("jwt.secret")
-	defaultJWTTTL    = 60 * time.Second
-)
-
 func JWTSecret() []byte {
-	return []byte(defaultJWTSecret)
+	return []byte(DefaultJWTSecret)
 }
 
 func JWTTTL() time.Duration {
-	return defaultJWTTTL
+	return DefaultJWTTTL
 }
 
 func HashPassword(password string) (string, error) {
