@@ -12,7 +12,7 @@ import (
 
 var (
 	defaultJWTSecret = V.GetString("jwt.secret")
-	defaultJWTTTL    = 24 * time.Second
+	defaultJWTTTL    = 60 * time.Second
 )
 
 func JWTSecret() []byte {
