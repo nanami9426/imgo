@@ -78,6 +78,10 @@ type WSMessageOut struct {
 }
 
 func MessageHandler(ws *websocket.Conn, ctx context.Context, userID int64) error {
+	/*
+		goroutine读WS、写Redis
+		主循环读Redis、写WS
+	*/
 	if utils.RDB == nil {
 		return errors.New("redis not initialized")
 	}
@@ -127,6 +131,7 @@ func MessageHandler(ws *websocket.Conn, ctx context.Context, userID int64) error
 
 			if utils.DB != nil {
 				record := &models.ChatMessage{
+					MessageID:    utils.GenerateID(),
 					FromID:       userID,
 					ToID:         in.ToID,
 					MessageType:  in.MessageType,
@@ -190,9 +195,6 @@ func MessageHandler(ws *websocket.Conn, ctx context.Context, userID int64) error
 }
 
 func userChannel(userID int64) string {
-	if utils.WSPublishKey == "" {
-		return fmt.Sprintf("ws:user:%d", userID)
-	}
 	return fmt.Sprintf("%s:user:%d", utils.WSPublishKey, userID)
 }
 
