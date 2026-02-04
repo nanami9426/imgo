@@ -1,0 +1,19 @@
+mysql:
+ host: 8.134.xxx.xxx
+ port: 3306
+ user: root
+ password: xxxxxx
+ db: xxx
+
+redis:
+ host: 8.134.xxx.xxx
+ port: 6379
+ password: xxxxxx
+ db: 0
+
+jwt:
+ secret: xxxxxx
+ ttl_h: 170
+
+ws:
+ public_channel: pb
