@@ -277,6 +277,7 @@ func UserLogin(c *gin.Context) {
 		})
 		return
 	}
+	version = (version + 1) % utils.TokenVersionMax
 
 	token, err := utils.GenerateToken(utils.JWTSecret(), uint(user.UserID), role, utils.JWTTTL(), version)
 	if err != nil {

@@ -19,6 +19,7 @@ var (
 	WSPublishKey     string
 	DefaultJWTSecret string
 	DefaultJWTTTL    = 60 * time.Second
+	TokenVersionMax  uint
 )
 
 func InitParam() {
@@ -27,6 +28,7 @@ func InitParam() {
 
 	// auth.go
 	DefaultJWTSecret = V.GetString("jwt.secret")
+	TokenVersionMax = V.GetUint("token_version_max.n")
 }
 
 func InitConfig() {

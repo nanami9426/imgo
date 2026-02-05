@@ -17,3 +17,6 @@ jwt:
 
 ws:
  public_channel: pb
+
+token_version_max:
+ n: 1000

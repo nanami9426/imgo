@@ -116,14 +116,22 @@ func GetTokenVersion(ctx context.Context, user_id uint) (uint, error) {
 	return uint(version), nil
 }
 
+var incrModScript = redis.NewScript(`
+local key = KEYS[1]
+local mod = tonumber(ARGV[1])
+
+local v = redis.call("INCR", key)
+v = v % mod
+redis.call("SET", key, v)
+return v
+`)
+
 func IncrTokenVersion(ctx context.Context, userID uint) (uint, error) {
 	key := strconv.FormatUint(uint64(userID), 10)
 
-	// Redis INCR：不存在的 key 会被当成 0，然后 +1
-	newVersion, err := RDB.Incr(ctx, key).Result()
+	res, err := incrModScript.Run(ctx, RDB, []string{key}, TokenVersionMax).Result()
 	if err != nil {
 		return 0, err
 	}
-
-	return uint(newVersion), nil
+	return uint(res.(int64)), nil
 }
