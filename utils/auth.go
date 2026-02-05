@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"math/big"
@@ -9,8 +10,11 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var node, _ = snowflake.NewNode(1)
 
 func JWTSecret() []byte {
 	return []byte(DefaultJWTSecret)
@@ -34,7 +38,6 @@ func CheckPassword(hashed string, password string) bool {
 }
 
 func GenerateID() int64 {
-	node, _ := snowflake.NewNode(1)
 	user_id := node.Generate().Int64()
 	return user_id
 }
@@ -45,16 +48,18 @@ func GenerateUserID() int64 {
 }
 
 type Claims struct {
-	UserID uint   `json:"user_id"`
-	Role   string `json:"role"`
+	UserID  uint   `json:"user_id"`
+	Role    string `json:"role"`
+	Version uint
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(secret []byte, user_id uint, role string, ttl time.Duration) (string, error) {
+func GenerateToken(secret []byte, user_id uint, role string, ttl time.Duration, version uint) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
-		UserID: user_id,
-		Role:   role,
+		UserID:  user_id,
+		Role:    role,
+		Version: version,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   strconv.FormatUint(uint64(user_id), 10), // 这个token代表的主体
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -89,4 +94,36 @@ func CheckToken(tokenString string, secret []byte) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 	return claims, nil
+}
+
+func GetTokenVersion(ctx context.Context, user_id uint) (uint, error) {
+	key := strconv.FormatUint(uint64(user_id), 10)
+
+	versionStr, err := RDB.Get(ctx, key).Result()
+	if err == redis.Nil {
+		// key 不存在，返回默认版本
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	version, err := strconv.ParseUint(versionStr, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint(version), nil
+}
+
+func IncrTokenVersion(ctx context.Context, userID uint) (uint, error) {
+	key := strconv.FormatUint(uint64(userID), 10)
+
+	// Redis INCR：不存在的 key 会被当成 0，然后 +1
+	newVersion, err := RDB.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint(newVersion), nil
 }

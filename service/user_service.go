@@ -267,7 +267,18 @@ func UserLogin(c *gin.Context) {
 	if role == "" {
 		role = "user"
 	}
-	token, err := utils.GenerateToken(utils.JWTSecret(), uint(user.UserID), role, utils.JWTTTL())
+
+	version, err := utils.GetTokenVersion(c, uint(user.UserID))
+	if err != nil {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatInternalError,
+			"stat":      utils.StatText(utils.StatInternalError),
+			"err":       err.Error(),
+		})
+		return
+	}
+
+	token, err := utils.GenerateToken(utils.JWTSecret(), uint(user.UserID), role, utils.JWTTTL(), version)
 	if err != nil {
 		c.JSON(200, gin.H{
 			"stat_code": utils.StatInternalError,
@@ -277,9 +288,22 @@ func UserLogin(c *gin.Context) {
 		})
 		return
 	}
+
+	_, err = utils.IncrTokenVersion(c, uint(user.UserID))
+	if err != nil {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatInternalError,
+			"stat":      utils.StatText(utils.StatInternalError),
+			"err":       err.Error(),
+		})
+		return
+	}
+
 	c.JSON(200, gin.H{
 		"stat_code": utils.StatSuccess,
 		"stat":      utils.StatText(utils.StatSuccess),
 		"token":     token,
+		"version":   version,
+		"user_id":   user.UserID,
 	})
 }
