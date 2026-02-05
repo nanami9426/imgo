@@ -18,8 +18,9 @@ var (
 	Ctx              = context.Background()
 	WSPublishKey     string
 	DefaultJWTSecret string
-	DefaultJWTTTL    = 11160 * time.Second
+	DefaultJWTTTL    = 30000 * time.Second
 	TokenVersionMax  uint
+	LoginDeviceMax   uint
 )
 
 func InitParam() {
@@ -29,6 +30,8 @@ func InitParam() {
 	// auth.go
 	DefaultJWTSecret = V.GetString("jwt.secret")
 	TokenVersionMax = V.GetUint("token_version_max.n")
+	LoginDeviceMax = V.GetUint("login_device_max.n")
+
 }
 
 func InitConfig() {

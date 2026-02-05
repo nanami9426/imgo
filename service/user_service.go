@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/asaskevich/govalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/nanami9426/imgo/models"
@@ -27,6 +29,10 @@ type UpdateUserReq struct {
 type UserLoginReq struct {
 	Email    string `json:"email" form:"email"`
 	Password string `json:"password" form:"password"`
+}
+
+type CheckTokenReq struct {
+	Token string `json:"token" form:"token"`
 }
 
 // @Summary 用户列表
@@ -306,5 +312,73 @@ func UserLogin(c *gin.Context) {
 		"token":     token,
 		"version":   version,
 		"user_id":   user.UserID,
+	})
+}
+
+// @Summary 校验 token 是否有效
+// @Tags users
+// @Produce json
+// @Router /user/check_token [post]
+// @param token header string false "Bearer token"
+// @param token formData string false "token"
+func CheckToken(c *gin.Context) {
+	token := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(token), "bearer ") {
+		token = strings.TrimSpace(token[7:])
+	}
+	if token == "" {
+		token = strings.TrimSpace(c.Query("token"))
+	}
+	if token == "" {
+		req := &CheckTokenReq{}
+		_ = c.ShouldBind(req)
+		token = strings.TrimSpace(req.Token)
+	}
+	if token == "" {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatInvalidParam,
+			"stat":      utils.StatText(utils.StatInvalidParam),
+			"message":   "token不能为空",
+		})
+		return
+	}
+	uintDiff := func(a, b uint) uint {
+		if a >= b {
+			return a - b
+		}
+		return b - a
+	}
+	claims, err := utils.CheckToken(token, utils.JWTSecret())
+
+	if err != nil {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatUnauthorized,
+			"stat":      utils.StatText(utils.StatUnauthorized),
+			"message":   "token无效或已过期",
+			"err":       err.Error(),
+		})
+		return
+	}
+	latest_version, _ := utils.GetTokenVersion(c, claims.UserID)
+	diff := uintDiff(latest_version, claims.Version)
+	if diff >= utils.LoginDeviceMax {
+		c.JSON(200, gin.H{
+			"stat_code": utils.StatUnauthorized,
+			"stat":      utils.StatText(utils.StatUnauthorized),
+			"message":   "登录设备达到上限",
+		})
+		return
+	}
+
+	exp := int64(0)
+	if claims.ExpiresAt != nil {
+		exp = claims.ExpiresAt.Unix()
+	}
+	c.JSON(200, gin.H{
+		"stat_code": utils.StatSuccess,
+		"stat":      utils.StatText(utils.StatSuccess),
+		"user_id":   claims.UserID,
+		"role":      claims.Role,
+		"exp":       exp,
 	})
 }
