@@ -38,3 +38,6 @@ app.yaml
 docs/docs.go
 docs/swagger.json
 docs/swagger.yaml
+
+# uv
+.venv
