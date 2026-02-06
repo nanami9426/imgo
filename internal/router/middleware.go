@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nanami9426/imgo/internal/response"
 	"github.com/nanami9426/imgo/internal/utils"
 )
 
@@ -52,13 +51,13 @@ func AuthMiddleware() gin.HandlerFunc {
 			导致后面再转发请求时body可能已经被消费了。
 		*/
 		if token == "" {
-			response.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "token不能为空", nil)
+			utils.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "token不能为空", nil)
 			return
 		}
 
 		claims, err := utils.CheckToken(token, utils.JWTSecret())
 		if err != nil {
-			response.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "token无效或已过期", err)
+			utils.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "token无效或已过期", err)
 			return
 		}
 
@@ -71,7 +70,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}(latestVersion, claims.Version)
 
 		if diff >= utils.LoginDeviceMax {
-			response.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "登录设备达到上限", nil)
+			utils.Abort(c, http.StatusUnauthorized, utils.StatUnauthorized, "登录设备达到上限", nil)
 			return
 		}
 

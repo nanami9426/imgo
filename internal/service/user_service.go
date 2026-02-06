@@ -7,7 +7,6 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/nanami9426/imgo/internal/models"
-	"github.com/nanami9426/imgo/internal/response"
 	"github.com/nanami9426/imgo/internal/utils"
 )
 
@@ -45,10 +44,10 @@ type CheckTokenReq struct {
 func GetUserList(c *gin.Context) {
 	user_list, err := models.GetUserList()
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatDatabaseError, "获取用户列表失败", err)
+		utils.Fail(c, http.StatusOK, utils.StatDatabaseError, "获取用户列表失败", err)
 		return
 	}
-	response.Success(c, user_list)
+	utils.Success(c, user_list)
 }
 
 // @Summary 创建新用户
@@ -62,7 +61,7 @@ func GetUserList(c *gin.Context) {
 func CreateUser(c *gin.Context) {
 	req := &CreateUserReq{}
 	if err := c.ShouldBind(req); err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
 		return
 	}
 	user := &models.UserBasic{}
@@ -70,26 +69,26 @@ func CreateUser(c *gin.Context) {
 	password := req.Password
 	re_password := req.RePassword
 	if password != re_password {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "两次输入的密码不一致", nil)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "两次输入的密码不一致", nil)
 		return
 	}
 	user.Password, _ = utils.HashPassword(password)
 	if !govalidator.IsEmail(req.Email) {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式错误", nil)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式错误", nil)
 		return
 	}
 	if models.EmailIsExists(req.Email) {
-		response.Fail(c, http.StatusOK, utils.StatConflict, "该邮箱已注册", nil)
+		utils.Fail(c, http.StatusOK, utils.StatConflict, "该邮箱已注册", nil)
 		return
 	}
 	user.Email = req.Email
 	user_id := utils.GenerateUserID()
 	user.UserID = user_id
 	if err := models.CreateUser(user); err != nil {
-		response.Fail(c, http.StatusOK, utils.StatDatabaseError, "注册失败", err)
+		utils.Fail(c, http.StatusOK, utils.StatDatabaseError, "注册失败", err)
 		return
 	}
-	response.SuccessMessage(c, "注册成功")
+	utils.SuccessMessage(c, "注册成功")
 }
 
 // @Summary 删除用户
@@ -100,21 +99,21 @@ func CreateUser(c *gin.Context) {
 func DeleteUser(c *gin.Context) {
 	req := &DeleteUserReq{}
 	if err := c.ShouldBind(req); err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
 		return
 	}
 	user, rows := models.FindUserByUserID(req.UserID)
 	if rows == 0 {
-		response.Fail(c, http.StatusOK, utils.StatNotFound, "用户不存在", nil)
+		utils.Fail(c, http.StatusOK, utils.StatNotFound, "用户不存在", nil)
 		return
 	}
 	_, err := models.DeleteUser(&user)
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatDatabaseError, "删除失败", err)
+		utils.Fail(c, http.StatusOK, utils.StatDatabaseError, "删除失败", err)
 		return
 	}
 
-	response.SuccessMessage(c, "删除成功")
+	utils.SuccessMessage(c, "删除成功")
 }
 
 // @Summary 更新用户信息
@@ -127,11 +126,11 @@ func DeleteUser(c *gin.Context) {
 func UpdateUser(c *gin.Context) {
 	req := &UpdateUserReq{}
 	if err := c.ShouldBind(req); err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
 		return
 	}
 	if !govalidator.IsEmail(req.Email) && "" != req.Email {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式错误", nil)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式错误", nil)
 		return
 	}
 	data_update := map[string]interface{}{
@@ -140,21 +139,21 @@ func UpdateUser(c *gin.Context) {
 	}
 	if "" != req.Email {
 		if models.EmailIsExists(req.Email) {
-			response.Fail(c, http.StatusOK, utils.StatConflict, "该邮箱已注册", nil)
+			utils.Fail(c, http.StatusOK, utils.StatConflict, "该邮箱已注册", nil)
 			return
 		}
 		data_update["Email"] = req.Email
 	}
 	rows, err := models.UpdateUser(data_update)
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatDatabaseError, "修改失败", err)
+		utils.Fail(c, http.StatusOK, utils.StatDatabaseError, "修改失败", err)
 		return
 	}
 	if rows == 0 {
-		response.Fail(c, http.StatusOK, utils.StatNotFound, "用户不存在", nil)
+		utils.Fail(c, http.StatusOK, utils.StatNotFound, "用户不存在", nil)
 		return
 	}
-	response.SuccessMessage(c, "修改成功")
+	utils.SuccessMessage(c, "修改成功")
 }
 
 // @Summary 用户登录
@@ -166,17 +165,17 @@ func UpdateUser(c *gin.Context) {
 func UserLogin(c *gin.Context) {
 	req := &UserLoginReq{}
 	if err := c.ShouldBind(req); err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "参数错误", err)
 		return
 	}
 	if !govalidator.IsEmail(req.Email) || !models.EmailIsExists(req.Email) {
-		response.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式有误或邮箱不存在", nil)
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "邮箱格式有误或邮箱不存在", nil)
 		return
 	}
 	user, _ := models.FindUserByEmail(req.Email)
 	hashed_password := user.Password
 	if !utils.CheckPassword(hashed_password, req.Password) {
-		response.Fail(c, http.StatusOK, utils.StatUnauthorized, "密码错误", nil)
+		utils.Fail(c, http.StatusOK, utils.StatUnauthorized, "密码错误", nil)
 		return
 	}
 	role := user.Identity
@@ -186,24 +185,24 @@ func UserLogin(c *gin.Context) {
 
 	version, err := utils.GetTokenVersion(c, uint(user.UserID))
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInternalError, "内部错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInternalError, "内部错误", err)
 		return
 	}
 	version = (version + 1) % utils.TokenVersionMax
 
 	token, err := utils.GenerateToken(utils.JWTSecret(), uint(user.UserID), role, utils.JWTTTL(), version)
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInternalError, "生成token失败", err)
+		utils.Fail(c, http.StatusOK, utils.StatInternalError, "生成token失败", err)
 		return
 	}
 
 	_, err = utils.IncrTokenVersion(c, uint(user.UserID))
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatInternalError, "内部错误", err)
+		utils.Fail(c, http.StatusOK, utils.StatInternalError, "内部错误", err)
 		return
 	}
 
-	response.Success(c, gin.H{
+	utils.Success(c, gin.H{
 		"token":   token,
 		"version": version,
 		"user_id": user.UserID,
@@ -230,7 +229,7 @@ func CheckToken(c *gin.Context) {
 		token = strings.TrimSpace(req.Token)
 	}
 	if token == "" {
-		response.Fail(c, http.StatusUnauthorized, utils.StatInvalidParam, "token不能为空", nil)
+		utils.Fail(c, http.StatusUnauthorized, utils.StatInvalidParam, "token不能为空", nil)
 		return
 	}
 	uintDiff := func(a, b uint) uint {
@@ -242,14 +241,14 @@ func CheckToken(c *gin.Context) {
 	claims, err := utils.CheckToken(token, utils.JWTSecret())
 
 	if err != nil {
-		response.Fail(c, http.StatusUnauthorized, utils.StatUnauthorized, "token无效或已过期", err)
+		utils.Fail(c, http.StatusUnauthorized, utils.StatUnauthorized, "token无效或已过期", err)
 		return
 	}
 
 	latest_version, _ := utils.GetTokenVersion(c, claims.UserID)
 	diff := uintDiff(latest_version, claims.Version)
 	if diff >= utils.LoginDeviceMax {
-		response.Fail(c, http.StatusUnauthorized, utils.StatUnauthorized, "登录设备达到上限", nil)
+		utils.Fail(c, http.StatusUnauthorized, utils.StatUnauthorized, "登录设备达到上限", nil)
 		return
 	}
 
@@ -257,7 +256,7 @@ func CheckToken(c *gin.Context) {
 	if claims.ExpiresAt != nil {
 		exp = claims.ExpiresAt.Unix()
 	}
-	response.Success(c, gin.H{
+	utils.Success(c, gin.H{
 		"user_id": claims.UserID,
 		"role":    claims.Role,
 		"exp":     exp,

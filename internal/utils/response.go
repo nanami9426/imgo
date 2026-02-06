@@ -1,4 +1,4 @@
-package response
+package utils
 
 import (
 	"net/http"
@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nanami9426/imgo/internal/utils"
 )
 
 type Error struct {
@@ -34,23 +33,23 @@ func SuccessMessage(c *gin.Context, message string) {
 	Success(c, gin.H{"message": message})
 }
 
-func Fail(c *gin.Context, httpStatus int, code utils.StatCode, message string, err error) {
+func Fail(c *gin.Context, httpStatus int, code StatCode, message string, err error) {
 	c.JSON(httpStatus, Response{
 		Success: false,
 		Error:   newError(code, message, err),
 	})
 }
 
-func Abort(c *gin.Context, httpStatus int, code utils.StatCode, message string, err error) {
+func Abort(c *gin.Context, httpStatus int, code StatCode, message string, err error) {
 	c.AbortWithStatusJSON(httpStatus, Response{
 		Success: false,
 		Error:   newError(code, message, err),
 	})
 }
 
-func newError(code utils.StatCode, message string, err error) *Error {
+func newError(code StatCode, message string, err error) *Error {
 	if strings.TrimSpace(message) == "" {
-		message = utils.StatText(code)
+		message = StatText(code)
 	}
 	apiErr := &Error{
 		Message: message,
@@ -63,15 +62,15 @@ func newError(code utils.StatCode, message string, err error) *Error {
 	return apiErr
 }
 
-func errorType(code utils.StatCode) string {
+func errorType(code StatCode) string {
 	switch code {
-	case utils.StatInvalidParam, utils.StatNotFound, utils.StatConflict:
+	case StatInvalidParam, StatNotFound, StatConflict:
 		return "invalid_request_error"
-	case utils.StatUnauthorized:
+	case StatUnauthorized:
 		return "authentication_error"
-	case utils.StatForbidden:
+	case StatForbidden:
 		return "permission_error"
-	case utils.StatInternalError, utils.StatDatabaseError:
+	case StatInternalError, StatDatabaseError:
 		return "server_error"
 	default:
 		return "unknown_error"

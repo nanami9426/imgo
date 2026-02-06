@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/nanami9426/imgo/internal/models"
-	"github.com/nanami9426/imgo/internal/response"
 	"github.com/nanami9426/imgo/internal/utils"
 )
 
@@ -37,7 +36,7 @@ var ug = websocket.Upgrader{
 func SendMessage(c *gin.Context) {
 	userID, err := getUserIDFromRequest(c)
 	if err != nil {
-		response.Fail(c, http.StatusOK, utils.StatUnauthorized, "token无效", err)
+		utils.Fail(c, http.StatusOK, utils.StatUnauthorized, "token无效", err)
 		return
 	}
 
@@ -45,7 +44,7 @@ func SendMessage(c *gin.Context) {
 	// ws 在一次握手后建立长连接，服务端和客户端都可以随时发消息，不需要每次重新建连接。
 	ws, err := ug.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, utils.StatInternalError, "升级WebSocket失败", err)
+		utils.Fail(c, http.StatusBadRequest, utils.StatInternalError, "升级WebSocket失败", err)
 		return
 	}
 	defer ws.Close()
