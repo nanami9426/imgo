@@ -3,7 +3,7 @@ package middlewares
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,15 +34,23 @@ func APILoggingMiddleware() gin.HandlerFunc {
 
 		// 提取用户信息
 		userID := int64(0)
-		if claims, ok := c.Get("user_claims"); ok {
-			if cl, ok := claims.(*utils.Claims); ok {
-				userID = int64(cl.UserID)
+		if v, ok := c.Get("user_id"); ok {
+			switch val := v.(type) {
+			case int64:
+				userID = val
+			case int:
+				userID = int64(val)
+			case uint:
+				userID = int64(val)
+			case uint64:
+				userID = int64(val)
+			case float64:
+				userID = int64(val)
+			case string:
+				if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
+					userID = parsed
+				}
 			}
-		}
-
-		// 跳过无需记录的端点
-		if shouldSkipLogging(c.Request.URL.Path) {
-			return
 		}
 
 		// 创建使用记录
@@ -52,6 +60,7 @@ func APILoggingMiddleware() gin.HandlerFunc {
 		}
 
 		usage := &models.APIUsage{
+			UsageID:       utils.GenerateID(),
 			UserID:        userID,
 			Endpoint:      c.Request.URL.Path,
 			RequestMethod: c.Request.Method,
@@ -79,20 +88,6 @@ type responseWriter struct {
 func (w *responseWriter) Write(b []byte) (int, error) {
 	w.body = append(w.body, b...)
 	return w.ResponseWriter.Write(b)
-}
-
-// 判断是否跳过记录
-func shouldSkipLogging(path string) bool {
-	if path == "/healthz" {
-		return true
-	}
-	if strings.HasPrefix(path, "/swagger") {
-		return true
-	}
-	if strings.HasPrefix(path, "/docs") {
-		return true
-	}
-	return false
 }
 
 type openAIUsage struct {
@@ -174,9 +169,31 @@ func parseOpenAISSE(body []byte) (*openAIResp, bool) {
 	lines := bytes.Split(body, []byte("\n"))
 	var last *openAIResp
 	var lastWithUsage *openAIResp
+	var dataBuf []byte
+	flush := func() {
+		if len(dataBuf) == 0 {
+			return
+		}
+		data := bytes.TrimSpace(dataBuf)
+		dataBuf = nil
+		if len(data) == 0 || bytes.Equal(data, []byte("[DONE]")) {
+			return
+		}
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.UseNumber()
+		var resp openAIResp
+		if err := dec.Decode(&resp); err != nil {
+			return
+		}
+		last = &resp
+		if resp.Usage != nil {
+			lastWithUsage = &resp
+		}
+	}
 	for _, line := range lines {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
+			flush()
 			continue
 		}
 		if !bytes.HasPrefix(line, []byte("data:")) {
@@ -186,20 +203,12 @@ func parseOpenAISSE(body []byte) (*openAIResp, bool) {
 		if len(data) == 0 {
 			continue
 		}
-		if bytes.Equal(data, []byte("[DONE]")) {
-			continue
+		if len(dataBuf) > 0 {
+			dataBuf = append(dataBuf, '\n')
 		}
-		dec := json.NewDecoder(bytes.NewReader(data))
-		dec.UseNumber()
-		var resp openAIResp
-		if err := dec.Decode(&resp); err != nil {
-			continue
-		}
-		last = &resp
-		if resp.Usage != nil {
-			lastWithUsage = &resp
-		}
+		dataBuf = append(dataBuf, data...)
 	}
+	flush()
 	if lastWithUsage != nil {
 		return lastWithUsage, true
 	}
@@ -209,7 +218,7 @@ func parseOpenAISSE(body []byte) (*openAIResp, bool) {
 	return nil, false
 }
 
-// 从响应体中提取 Token 信息（假设是 JSON 格式）
+// 从响应体中提取Token信息
 func extractTokenInfo(body []byte, usage *models.APIUsage) {
 	if usage == nil || len(body) == 0 {
 		return

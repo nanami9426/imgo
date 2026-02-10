@@ -10,7 +10,6 @@ import (
 func Router() *gin.Engine {
 	r := gin.Default()
 	r.Use(middlewares.CORSMiddleware())
-	r.Use(middlewares.APILoggingMiddleware())
 
 	docs.SwaggerInfo.BasePath = "/"
 	r.GET("/healthz", service.Healthz)
