@@ -77,7 +77,8 @@ vLLM 代理（需要鉴权）：
 - `ANY /v1/:path/*any`
 
 **WebSocket**
-- 连接方式：`GET /chat/send_message?token=<JWT>` 或 `Authorization: Bearer <JWT>`。
+- 连接方式（优先级）：`Sec-WebSocket-Protocol: authorization.bearer.<JWT>` 或 `authorization.bearer.b64.<base64url(JWT)>`，其次 `GET /chat/send_message?token=<JWT>`，最后 `Authorization: Bearer <JWT>`。
+- 使用 `Sec-WebSocket-Protocol` 传 token 时，服务端会在握手响应中回写选中的子协议。
 - 客户端发送：
 
 ```json

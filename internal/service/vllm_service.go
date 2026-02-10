@@ -119,6 +119,9 @@ func ChatCompletionsHandler() gin.HandlerFunc {
 		defer resp.Body.Close()
 
 		for k, vv := range resp.Header {
+			if isHopByHopOrCORSHeader(k) {
+				continue
+			}
 			for _, v := range vv {
 				c.Writer.Header().Add(k, v)
 			}
@@ -170,5 +173,28 @@ func ChatCompletionsHandler() gin.HandlerFunc {
 		}
 
 		_, _ = io.Copy(c.Writer, resp.Body)
+	}
+}
+
+func isHopByHopOrCORSHeader(name string) bool {
+	switch strings.ToLower(name) {
+	case "connection",
+		"keep-alive",
+		"proxy-authenticate",
+		"proxy-authorization",
+		"te",
+		"trailer",
+		"transfer-encoding",
+		"upgrade",
+		"vary",
+		"access-control-allow-origin",
+		"access-control-allow-credentials",
+		"access-control-allow-headers",
+		"access-control-allow-methods",
+		"access-control-expose-headers",
+		"access-control-max-age":
+		return true
+	default:
+		return false
 	}
 }
