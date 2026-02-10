@@ -40,6 +40,7 @@ type conversationMessageResp struct {
 	ModifiedAt string `json:"updated_at"`
 }
 
+// GetConversations 返回当前登录用户的会话列表（按最近消息时间倒序）。
 func GetConversations(c *gin.Context) {
 	userID, ok := parseUserID(c)
 	if !ok || userID <= 0 {
@@ -58,6 +59,7 @@ func GetConversations(c *gin.Context) {
 		return
 	}
 
+	// 列表接口使用 page/page_size，内部转换成 offset/limit。
 	offset := (page - 1) * pageSize
 	conversations, err := models.ListLLMConversationsByUser(userID, offset, pageSize)
 	if err != nil {
@@ -85,6 +87,7 @@ func GetConversations(c *gin.Context) {
 	})
 }
 
+// GetConversationMessages 返回指定会话的消息列表，并校验会话归属。
 func GetConversationMessages(c *gin.Context) {
 	userID, ok := parseUserID(c)
 	if !ok || userID <= 0 {
@@ -118,6 +121,7 @@ func GetConversationMessages(c *gin.Context) {
 		return
 	}
 
+	// 消息详情同样走分页，避免长会话一次性返回过大。
 	offset := (page - 1) * pageSize
 	messages, err := models.ListLLMConversationMessages(conversationID, offset, pageSize)
 	if err != nil {
@@ -153,6 +157,7 @@ func GetConversationMessages(c *gin.Context) {
 	})
 }
 
+// parseUserID 统一处理鉴权中间件写入 user_id 的多种类型。
 func parseUserID(c *gin.Context) (int64, bool) {
 	v, ok := c.Get("user_id")
 	if !ok {
@@ -177,6 +182,7 @@ func parseUserID(c *gin.Context) (int64, bool) {
 	}
 }
 
+// parsePagination 统一处理分页默认值、边界和参数合法性。
 func parsePagination(c *gin.Context, defaultPage int, defaultPageSize int, maxPageSize int) (int, int, error) {
 	page := defaultPage
 	if raw := strings.TrimSpace(c.Query("page")); raw != "" {

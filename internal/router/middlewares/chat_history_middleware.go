@@ -30,6 +30,10 @@ type chatMessagePayload struct {
 	Content string
 }
 
+// ChatHistoryMiddleware 为 /v1/chat/completions 增加会话能力：
+// 1) 解析并消费 conversation_id/new_chat
+// 2) 续聊时自动拼接历史消息
+// 3) 预写入 user/system 消息，响应后补写 assistant 消息
 func ChatHistoryMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost || !shouldLogAPIPath(c.Request.URL.Path) {
@@ -56,6 +60,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 当前请求里 model/messages 是会话持久化和上下文拼接的基础输入。
 		modelName, _ := payload["model"].(string)
 		currentMessages, err := parseRequestMessages(payload)
 		if err != nil {
@@ -69,6 +74,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 有 conversation_id 且没有 new_chat 时认为是续聊。
 		isContinue := hasConversationID && !newChat
 		if isContinue {
 			belongs, err := models.ConversationBelongsToUser(conversationID, userID)
@@ -85,6 +91,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 				return
 			}
 		} else {
+			// 新会话在第一轮请求前创建，方便后续消息统一挂到 conversation_id。
 			conversationID = utils.GenerateID()
 			conversation := &models.LLMConversation{
 				ConversationID: conversationID,
@@ -99,6 +106,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// 续聊时把数据库历史和本轮输入合并，最终写回给上游模型的 messages。
 		mergedMessages, err := buildUpstreamMessages(conversationID, isContinue, currentMessages)
 		if err != nil {
 			utils.Abort(c, http.StatusInternalServerError, utils.StatDatabaseError, "组装历史消息失败", err)
@@ -115,9 +123,11 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 		c.Request.ContentLength = int64(len(rewrittenBody))
 		c.Request.Header.Set("Content-Length", strconv.Itoa(len(rewrittenBody)))
 
+		// 通过响应头把会话ID返回前端，便于后续继续聊天。
 		c.Set("conversation_id", conversationID)
 		c.Writer.Header().Set(responseHeaderConversationID, strconv.FormatInt(conversationID, 10))
 
+		// 在转发前先写入本轮 user/system 消息；assistant 需要等待上游响应后再落库。
 		userMessages, err := buildMessagesForStorage(userID, conversationID, modelName, currentMessages)
 		if err != nil {
 			utils.Abort(c, http.StatusBadRequest, utils.StatInvalidParam, err.Error(), nil)
@@ -134,6 +144,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 
 		c.Next()
 
+		// APILoggingMiddleware 会把响应体放到 context，这里读取后解析 assistant 内容并落库。
 		responseModel := strings.TrimSpace(modelName)
 		if responseBody, ok := c.Get(contextKeyChatCompletionResponseBody); ok {
 			if body, ok := responseBody.([]byte); ok && len(body) > 0 {
@@ -155,6 +166,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 	}
 }
 
+// parseUserIDFromContext 把鉴权中间件写入的 user_id 统一转成 int64。
 func parseUserIDFromContext(c *gin.Context) (int64, bool) {
 	v, ok := c.Get("user_id")
 	if !ok {
@@ -179,6 +191,7 @@ func parseUserIDFromContext(c *gin.Context) (int64, bool) {
 	}
 }
 
+// parseRequestMessages 只接受文本 content，避免把复杂多模态结构直接落库导致脏数据。
 func parseRequestMessages(payload map[string]interface{}) ([]chatMessagePayload, error) {
 	rawMessages, ok := payload["messages"]
 	if !ok {
@@ -215,6 +228,8 @@ func parseRequestMessages(payload map[string]interface{}) ([]chatMessagePayload,
 	return messages, nil
 }
 
+// consumeConversationOptions 从请求体中读取网关扩展字段，并将其从 payload 删除。
+// 删除的原因：上游 vLLM 接口不识别这些字段。
 func consumeConversationOptions(payload map[string]interface{}) (conversationID int64, hasConversationID bool, newChat bool, err error) {
 	if rawNewChat, ok := payload["new_chat"]; ok {
 		newChat, err = parseBool(rawNewChat)
@@ -262,6 +277,7 @@ func parseInt64(v interface{}) (int64, error) {
 	}
 }
 
+// 续聊严格校验：只允许 user 或 system+user，防止前端重复传历史导致上下文膨胀。
 func validateContinueMessages(messages []chatMessagePayload) error {
 	if len(messages) == 0 {
 		return errors.New("续聊时 messages 不能为空")
@@ -281,6 +297,7 @@ func validateContinueMessages(messages []chatMessagePayload) error {
 	return nil
 }
 
+// buildUpstreamMessages 根据是否续聊决定是否注入历史上下文。
 func buildUpstreamMessages(conversationID int64, isContinue bool, currentMessages []chatMessagePayload) ([]map[string]interface{}, error) {
 	if !isContinue {
 		upstream := make([]map[string]interface{}, 0, len(currentMessages))
@@ -296,6 +313,7 @@ func buildUpstreamMessages(conversationID int64, isContinue bool, currentMessage
 	return mergeHistoryAndCurrentMessages(history, currentMessages)
 }
 
+// historyMessageLimit 从配置读取历史条数上限，未配置时使用默认值。
 func historyMessageLimit() int {
 	n := utils.V.GetInt("vllm.history_max_messages")
 	if n <= 0 {
@@ -307,6 +325,7 @@ func historyMessageLimit() int {
 	return n
 }
 
+// mergeHistoryAndCurrentMessages 保证顺序是：历史 -> 本轮输入。
 func mergeHistoryAndCurrentMessages(history []*models.LLMConversationMessage, currentMessages []chatMessagePayload) ([]map[string]interface{}, error) {
 	merged := make([]map[string]interface{}, 0, len(history)+len(currentMessages))
 	for _, item := range history {
@@ -328,6 +347,7 @@ func mergeHistoryAndCurrentMessages(history []*models.LLMConversationMessage, cu
 	return merged, nil
 }
 
+// buildMessagesForStorage 只落 user/system；assistant 在响应返回后再单独写入。
 func buildMessagesForStorage(userID int64, conversationID int64, model string, messages []chatMessagePayload) ([]*models.LLMConversationMessage, error) {
 	out := make([]*models.LLMConversationMessage, 0, len(messages))
 	for _, msg := range messages {
@@ -351,6 +371,7 @@ func buildMessagesForStorage(userID int64, conversationID int64, model string, m
 	return out, nil
 }
 
+// 新会话标题默认取首条 user 消息前 N 个字符。
 func buildConversationTitle(messages []chatMessagePayload) string {
 	for _, msg := range messages {
 		if msg.Role == "user" {
@@ -374,6 +395,7 @@ func truncateRunes(s string, limit int) string {
 	return string(rs[:limit])
 }
 
+// saveAssistantMessage 在拿到上游响应后补写 assistant。
 func saveAssistantMessage(userID int64, conversationID int64, model string, content string) error {
 	raw, err := json.Marshal(map[string]interface{}{
 		"role":    "assistant",
@@ -394,6 +416,7 @@ func saveAssistantMessage(userID int64, conversationID int64, model string, cont
 	return models.CreateLLMConversationMessages([]*models.LLMConversationMessage{msg})
 }
 
+// extractAssistantContentAndModel 同时兼容 JSON 和 SSE 两种响应格式。
 func extractAssistantContentAndModel(body []byte) (string, string) {
 	if content, model, ok := parseAssistantFromJSON(body); ok {
 		return content, model
@@ -438,6 +461,7 @@ func parseAssistantFromJSON(body []byte) (string, string, bool) {
 	return builder.String(), strings.TrimSpace(resp.Model), true
 }
 
+// parseAssistantFromSSE 会拼接多个 delta chunk，得到完整 assistant 文本。
 func parseAssistantFromSSE(body []byte) (string, string) {
 	lines := bytes.Split(body, []byte("\n"))
 	var dataBuf []byte

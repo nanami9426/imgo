@@ -9,6 +9,7 @@ import (
 func RigisterVLLMRoutes(r *gin.Engine) {
 	v1 := r.Group("/v1")
 	v1.Use(middlewares.AuthMiddleware())
+	// 先做会话处理（改写请求、写入历史），再做 API 用量统计。
 	v1.Use(middlewares.ChatHistoryMiddleware())
 	v1.Use(middlewares.APILoggingMiddleware())
 	v1.GET("/conversations", service.GetConversations)

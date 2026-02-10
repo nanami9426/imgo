@@ -10,12 +10,12 @@ import (
 )
 
 type LLMConversation struct {
-	ConversationID     int64 `gorm:"primarykey"`
-	UserID             int64 `gorm:"index"`
-	Title              string
-	Model              string
-	MessageCount       int
-	LastMessagePreview string
+	ConversationID     int64     `gorm:"primarykey"`
+	UserID             int64     `gorm:"index"`
+	Title              string    // 会话标题（默认截取首条 user 消息）
+	Model              string    // 最近一次使用的模型
+	MessageCount       int       // 会话总消息数（user/system/assistant）
+	LastMessagePreview string    // 最近一条消息预览
 	LastMessageAt      time.Time `gorm:"index"`
 	Basic
 }
@@ -25,12 +25,12 @@ func (c *LLMConversation) TableName() string {
 }
 
 type LLMConversationMessage struct {
-	MessageID      int64 `gorm:"primarykey"`
-	ConversationID int64 `gorm:"index"`
-	UserID         int64 `gorm:"index"`
-	Role           string
-	Content        string `gorm:"type:longtext"`
-	MessageJSON    string `gorm:"type:longtext"`
+	MessageID      int64  `gorm:"primarykey"`
+	ConversationID int64  `gorm:"index"`
+	UserID         int64  `gorm:"index"`
+	Role           string // system/user/assistant
+	Content        string `gorm:"type:longtext"` // 文本内容（便于直接展示）
+	MessageJSON    string `gorm:"type:longtext"` // 原始消息JSON（便于还原转发）
 	Model          string
 	Basic
 }
@@ -43,6 +43,7 @@ func CreateLLMConversation(conversation *LLMConversation) error {
 	return utils.DB.Create(conversation).Error
 }
 
+// GetLLMConversationByIDAndUser 用于会话详情查询和归属校验。
 func GetLLMConversationByIDAndUser(conversationID int64, userID int64) (*LLMConversation, error) {
 	var conversation LLMConversation
 	err := utils.DB.
@@ -54,6 +55,7 @@ func GetLLMConversationByIDAndUser(conversationID int64, userID int64) (*LLMConv
 	return &conversation, nil
 }
 
+// ConversationBelongsToUser 用于拦截跨用户访问会话。
 func ConversationBelongsToUser(conversationID int64, userID int64) (bool, error) {
 	var count int64
 	err := utils.DB.
@@ -63,6 +65,7 @@ func ConversationBelongsToUser(conversationID int64, userID int64) (bool, error)
 	return count > 0, err
 }
 
+// CountLLMConversationsByUser + ListLLMConversationsByUser 组成分页查询。
 func CountLLMConversationsByUser(userID int64) (int64, error) {
 	var count int64
 	err := utils.DB.
@@ -91,6 +94,7 @@ func CreateLLMConversationMessages(messages []*LLMConversationMessage) error {
 	return utils.DB.Create(messages).Error
 }
 
+// CountLLMConversationMessages + ListLLMConversationMessages 用于消息分页查询。
 func CountLLMConversationMessages(conversationID int64) (int64, error) {
 	var count int64
 	err := utils.DB.
@@ -124,10 +128,12 @@ func GetRecentLLMConversationMessages(conversationID int64, limit int) ([]*LLMCo
 	if err := db.Find(&list).Error; err != nil {
 		return nil, err
 	}
+	// 查询时按倒序拿最新 limit 条，这里反转成时间正序方便拼接上下文。
 	reverseMessages(list)
 	return list, nil
 }
 
+// RefreshLLMConversationStats 在每次写消息后刷新会话统计与预览字段。
 func RefreshLLMConversationStats(conversationID int64, model string) error {
 	count, err := CountLLMConversationMessages(conversationID)
 	if err != nil {
@@ -166,6 +172,7 @@ func reverseMessages(messages []*LLMConversationMessage) {
 	}
 }
 
+// truncateRunes 按字符截断，避免中文被按字节切坏。
 func truncateRunes(s string, limit int) string {
 	if limit <= 0 {
 		return ""

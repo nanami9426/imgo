@@ -37,6 +37,7 @@ func APILoggingMiddleware() gin.HandlerFunc {
 
 		// 继续处理请求
 		c.Next()
+		// 透传 chat/completions 响应体，供会话中间件在后置阶段提取 assistant 内容。
 		c.Set(contextKeyChatCompletionResponseBody, append([]byte(nil), writer.body...))
 
 		// 计算耗时
