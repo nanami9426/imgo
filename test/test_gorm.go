@@ -40,4 +40,5 @@ func main() {
 	db.AutoMigrate(&models.ChatMessage{})
 	db.AutoMigrate(&models.Group{})
 	db.AutoMigrate(&models.UserRelationship{})
+	db.AutoMigrate(&models.APIUsage{})
 }
