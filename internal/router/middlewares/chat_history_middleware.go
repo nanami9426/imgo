@@ -128,12 +128,7 @@ func ChatHistoryMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set(responseHeaderConversationID, strconv.FormatInt(conversationID, 10))
 
 		// 在转发前先写入本轮 user/system 消息；assistant 需要等待上游响应后再落库。
-		userMessages, err := buildMessagesForStorage(userID, conversationID, modelName, currentMessages)
-		if err != nil {
-			utils.Abort(c, http.StatusBadRequest, utils.StatInvalidParam, err.Error(), nil)
-			return
-		}
-		if err := models.CreateLLMConversationMessages(userMessages); err != nil {
+		if err := persistCurrentMessages(userID, conversationID, modelName, currentMessages); err != nil {
 			utils.Abort(c, http.StatusInternalServerError, utils.StatDatabaseError, "保存会话消息失败", err)
 			return
 		}
@@ -300,17 +295,29 @@ func validateContinueMessages(messages []chatMessagePayload) error {
 // buildUpstreamMessages 根据是否续聊决定是否注入历史上下文。
 func buildUpstreamMessages(conversationID int64, isContinue bool, currentMessages []chatMessagePayload) ([]map[string]interface{}, error) {
 	if !isContinue {
-		upstream := make([]map[string]interface{}, 0, len(currentMessages))
-		for _, msg := range currentMessages {
-			upstream = append(upstream, msg.Raw)
-		}
-		return upstream, nil
+		systemMsg, nonSystem := splitCurrentMessages(currentMessages)
+		return mergeHistoryAndCurrentMessages(nil, systemMsg, nonSystem)
 	}
-	history, err := models.GetRecentLLMConversationMessages(conversationID, historyMessageLimit())
+
+	currentSystem, currentNonSystem := splitCurrentMessages(currentMessages)
+	effectiveSystem := currentSystem
+	if effectiveSystem == nil {
+		storedSystem, err := models.GetLLMConversationSystemMessage(conversationID)
+		if err != nil {
+			return nil, err
+		}
+		effectiveSystem = storedSystem
+	}
+
+	nonSystemLimit := historyMessageLimit()
+	if effectiveSystem != nil && nonSystemLimit > 0 {
+		nonSystemLimit--
+	}
+	history, err := models.GetRecentLLMConversationMessagesWithoutSystem(conversationID, nonSystemLimit)
 	if err != nil {
 		return nil, err
 	}
-	return mergeHistoryAndCurrentMessages(history, currentMessages)
+	return mergeHistoryAndCurrentMessages(history, effectiveSystem, currentNonSystem)
 }
 
 // historyMessageLimit 从配置读取历史条数上限，未配置时使用默认值。
@@ -325,9 +332,27 @@ func historyMessageLimit() int {
 	return n
 }
 
-// mergeHistoryAndCurrentMessages 保证顺序是：历史 -> 本轮输入。
-func mergeHistoryAndCurrentMessages(history []*models.LLMConversationMessage, currentMessages []chatMessagePayload) ([]map[string]interface{}, error) {
-	merged := make([]map[string]interface{}, 0, len(history)+len(currentMessages))
+// mergeHistoryAndCurrentMessages 保证顺序是：system(若有) -> 历史非system -> 本轮输入非system。
+func mergeHistoryAndCurrentMessages(history []*models.LLMConversationMessage, systemMessage *models.LLMConversationMessage, currentMessages []chatMessagePayload) ([]map[string]interface{}, error) {
+	merged := make([]map[string]interface{}, 0, 1+len(history)+len(currentMessages))
+	if systemMessage != nil {
+		msg := map[string]interface{}{}
+		if strings.TrimSpace(systemMessage.MessageJSON) != "" {
+			if err := json.Unmarshal([]byte(systemMessage.MessageJSON), &msg); err == nil {
+				merged = append(merged, msg)
+			} else {
+				merged = append(merged, map[string]interface{}{
+					"role":    "system",
+					"content": systemMessage.Content,
+				})
+			}
+		} else {
+			merged = append(merged, map[string]interface{}{
+				"role":    "system",
+				"content": systemMessage.Content,
+			})
+		}
+	}
 	for _, item := range history {
 		msg := map[string]interface{}{}
 		if strings.TrimSpace(item.MessageJSON) != "" {
@@ -347,16 +372,34 @@ func mergeHistoryAndCurrentMessages(history []*models.LLMConversationMessage, cu
 	return merged, nil
 }
 
-// buildMessagesForStorage 只落 user/system；assistant 在响应返回后再单独写入。
-func buildMessagesForStorage(userID int64, conversationID int64, model string, messages []chatMessagePayload) ([]*models.LLMConversationMessage, error) {
-	out := make([]*models.LLMConversationMessage, 0, len(messages))
-	for _, msg := range messages {
-		if msg.Role != "system" && msg.Role != "user" {
+// persistCurrentMessages 会把 system 进行 upsert（覆盖写），user 正常追加。
+func persistCurrentMessages(userID int64, conversationID int64, model string, messages []chatMessagePayload) error {
+	// 先清理历史遗留的重复 system，确保后续读写始终只有一条 system。
+	if err := models.CleanupLLMConversationSystemMessages(conversationID); err != nil {
+		return err
+	}
+
+	systemMsg, nonSystem := splitCurrentMessages(messages)
+	if systemMsg != nil {
+		if err := models.UpsertLLMConversationSystemMessage(
+			conversationID,
+			userID,
+			strings.TrimSpace(model),
+			systemMsg.Content,
+			systemMsg.MessageJSON,
+		); err != nil {
+			return err
+		}
+	}
+
+	out := make([]*models.LLMConversationMessage, 0, len(nonSystem))
+	for _, msg := range nonSystem {
+		if msg.Role != "user" {
 			continue
 		}
 		raw, err := json.Marshal(msg.Raw)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		out = append(out, &models.LLMConversationMessage{
 			MessageID:      utils.GenerateID(),
@@ -368,7 +411,7 @@ func buildMessagesForStorage(userID int64, conversationID int64, model string, m
 			Model:          strings.TrimSpace(model),
 		})
 	}
-	return out, nil
+	return models.CreateLLMConversationMessages(out)
 }
 
 // 新会话标题默认取首条 user 消息前 N 个字符。
@@ -382,6 +425,29 @@ func buildConversationTitle(messages []chatMessagePayload) string {
 		}
 	}
 	return "新对话"
+}
+
+// splitCurrentMessages 会提取“最后一条 system 作为生效系统消息”，其余消息作为非 system。
+// 这样可以支持“传入新 system 时覆盖旧 system”的语义。
+func splitCurrentMessages(messages []chatMessagePayload) (*models.LLMConversationMessage, []chatMessagePayload) {
+	nonSystem := make([]chatMessagePayload, 0, len(messages))
+	var system *models.LLMConversationMessage
+	for _, msg := range messages {
+		if msg.Role == "system" {
+			raw, err := json.Marshal(msg.Raw)
+			if err != nil {
+				continue
+			}
+			system = &models.LLMConversationMessage{
+				Role:        "system",
+				Content:     msg.Content,
+				MessageJSON: string(raw),
+			}
+			continue
+		}
+		nonSystem = append(nonSystem, msg)
+	}
+	return system, nonSystem
 }
 
 func truncateRunes(s string, limit int) string {

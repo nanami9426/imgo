@@ -52,15 +52,15 @@ func TestValidateContinueMessages(t *testing.T) {
 func TestMergeHistoryAndCurrentMessagesKeepsOrder(t *testing.T) {
 	history := []*models.LLMConversationMessage{
 		{
-			Role:        "system",
-			Content:     "System prompt",
-			MessageJSON: `{"role":"system","content":"System prompt"}`,
-		},
-		{
 			Role:        "assistant",
 			Content:     "Hello",
 			MessageJSON: `{"role":"assistant","content":"Hello"}`,
 		},
+	}
+	system := &models.LLMConversationMessage{
+		Role:        "system",
+		Content:     "System prompt",
+		MessageJSON: `{"role":"system","content":"System prompt"}`,
 	}
 	current := []chatMessagePayload{
 		{
@@ -73,7 +73,7 @@ func TestMergeHistoryAndCurrentMessagesKeepsOrder(t *testing.T) {
 		},
 	}
 
-	merged, err := mergeHistoryAndCurrentMessages(history, current)
+	merged, err := mergeHistoryAndCurrentMessages(history, system, current)
 	if err != nil {
 		t.Fatalf("mergeHistoryAndCurrentMessages error: %v", err)
 	}
@@ -82,6 +82,46 @@ func TestMergeHistoryAndCurrentMessagesKeepsOrder(t *testing.T) {
 	}
 	if merged[0]["role"] != "system" || merged[1]["role"] != "assistant" || merged[2]["role"] != "user" {
 		t.Fatalf("unexpected order after merge: %#v", merged)
+	}
+}
+
+func TestSplitCurrentMessagesUsesLatestSystem(t *testing.T) {
+	current := []chatMessagePayload{
+		{
+			Role:    "system",
+			Content: "old system",
+			Raw: map[string]interface{}{
+				"role":    "system",
+				"content": "old system",
+			},
+		},
+		{
+			Role:    "user",
+			Content: "hello",
+			Raw: map[string]interface{}{
+				"role":    "user",
+				"content": "hello",
+			},
+		},
+		{
+			Role:    "system",
+			Content: "new system",
+			Raw: map[string]interface{}{
+				"role":    "system",
+				"content": "new system",
+			},
+		},
+	}
+
+	system, nonSystem := splitCurrentMessages(current)
+	if system == nil {
+		t.Fatalf("expected system message")
+	}
+	if system.Content != "new system" {
+		t.Fatalf("expected latest system to win, got %q", system.Content)
+	}
+	if len(nonSystem) != 1 || nonSystem[0].Role != "user" {
+		t.Fatalf("expected only user in non-system list, got %#v", nonSystem)
 	}
 }
 
