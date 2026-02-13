@@ -20,3 +20,11 @@ ws:
 
 token_version_max:
  n: 1000
+
+rate_limit:
+ request_per_min: 15
+ token_per_min: 150
+ token_k: 100
+ default_max_tokens: 512
+ window_seconds: 60
+ redis_prefix: rl:chat

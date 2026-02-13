@@ -47,6 +47,30 @@ curl http://localhost:5000/healthz
 - `token_version_max.n`
 - `login_device_max.n`
 
+限流配置（`config/app.yaml`，针对 `POST /v1/chat/completions`）：
+- `rate_limit.request_per_min`：请求级配额（默认 `0`，`<=0` 表示关闭）
+- `rate_limit.token_per_min`：token 级配额（默认 `0`，`<=0` 表示关闭）
+- `rate_limit.token_k`：token 成本缩放系数 `K`（默认 `100`，`K>=1`）
+- `rate_limit.default_max_tokens`：未传 `max_tokens` 时的默认值
+- `rate_limit.window_seconds`：固定窗口秒数
+- `rate_limit.redis_prefix`：Redis key 前缀（默认 `rl:chat`）
+
+计费规则：
+- 请求级：每次请求成本固定为 `1`
+- token 级：`cost = ceil((prompt_tokens_est + max_tokens) / K)`，其中 `prompt_tokens_est` 按本次请求 `messages` 文本字节估算（`ceil(bytes/4)`，不包含会话历史拼接）
+
+request 级计算示例：
+- 假设配置：`request_per_min=2`
+- 每次 `POST /v1/chat/completions` 固定消耗 `1`
+- 结果：同一用户在该 60 秒窗口内前 `2` 次可通过，第 `3` 次会触发 `429` 且 `dimension=request`。
+
+token 级计算示例：
+- 假设配置：`token_per_min=12`、`token_k=100`
+- 某次请求：`prompt_tokens_est=180`、`max_tokens=220`
+- 则：`cost = ceil((180+220)/100) = ceil(4.0) = 4`
+- 结果：该请求会扣 `4` 个 token 配额单位；同一用户在该 60 秒窗口内最多可通过 `3` 次同等请求（第 `4` 次会触发 `429` 且 `dimension=token`）。
+- 非整除示例：若 `prompt_tokens_est=181` 且 `max_tokens=220`，则 `cost = ceil(401/100) = 5`。
+
 注意事项：
 - `config/app.yaml` 中应使用自己的实际配置与密钥，不要提交真实凭据。
 - CORS 白名单在 `internal/utils/sys_init.go` 的 `AllowedOrigins` 中维护。

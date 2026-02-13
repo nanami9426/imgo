@@ -70,6 +70,8 @@ func errorType(code StatCode) string {
 		return "authentication_error"
 	case StatForbidden:
 		return "permission_error"
+	case StatTooManyRequests:
+		return "rate_limit_error"
 	case StatInternalError, StatDatabaseError:
 		return "server_error"
 	default:

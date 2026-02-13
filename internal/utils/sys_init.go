@@ -38,6 +38,9 @@ func InitParam() {
 	TokenVersionMax = V.GetUint("token_version_max.n")
 	LoginDeviceMax = V.GetUint("login_device_max.n")
 	DefaultJWTTTL = time.Duration(V.GetUint("jwt.ttl_h")) * time.Hour
+
+	// rate_limit.go
+	InitRateLimitConfig()
 }
 
 func InitConfig() {
