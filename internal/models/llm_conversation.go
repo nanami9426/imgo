@@ -94,6 +94,41 @@ func CreateLLMConversationMessages(messages []*LLMConversationMessage) error {
 	return utils.DB.Create(messages).Error
 }
 
+// DeleteLLMConversationByIDAndUser 软删除会话与其消息（按用户隔离）。
+func DeleteLLMConversationByIDAndUser(conversationID int64, userID int64) (int64, error) {
+	tx := utils.DB.Begin()
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+
+	rollback := func(err error) (int64, error) {
+		_ = tx.Rollback().Error
+		return 0, err
+	}
+
+	result := tx.
+		Where("conversation_id = ? AND user_id = ?", conversationID, userID).
+		Delete(&LLMConversation{})
+	if result.Error != nil {
+		return rollback(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		_ = tx.Rollback().Error
+		return 0, nil
+	}
+
+	if err := tx.
+		Where("conversation_id = ? AND user_id = ?", conversationID, userID).
+		Delete(&LLMConversationMessage{}).Error; err != nil {
+		return rollback(err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
+	return result.RowsAffected, nil
+}
+
 // CleanupLLMConversationSystemMessages 清理历史遗留的重复 system，仅保留最早一条。
 func CleanupLLMConversationSystemMessages(conversationID int64) error {
 	var list []*LLMConversationMessage

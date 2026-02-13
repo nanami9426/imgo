@@ -99,6 +99,7 @@ vLLM 代理（需要鉴权）：
 - `POST /v1/chat/completions`
 - `GET /v1/conversations`
 - `GET /v1/conversations/:conversation_id/messages`
+- `DELETE /v1/conversations/:conversation_id`
 - `ANY /v1/:path`
 - `ANY /v1/:path/*any`
 

@@ -15,6 +15,7 @@ func RigisterVLLMRoutes(r *gin.Engine) {
 	v1.Use(middlewares.APILoggingMiddleware())
 	v1.GET("/conversations", service.GetConversations)
 	v1.GET("/conversations/:conversation_id/messages", service.GetConversationMessages)
+	v1.DELETE("/conversations/:conversation_id", service.DeleteConversation)
 	v1.POST("/chat/completions", service.ChatCompletionsHandler())
 	v1.Any("/:path", service.ProxyToVLLM())
 	v1.Any("/:path/*any", service.ProxyToVLLM())

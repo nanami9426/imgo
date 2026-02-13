@@ -157,6 +157,32 @@ func GetConversationMessages(c *gin.Context) {
 	})
 }
 
+// DeleteConversation 删除当前登录用户的指定会话及其历史消息。
+func DeleteConversation(c *gin.Context) {
+	userID, ok := parseUserID(c)
+	if !ok || userID <= 0 {
+		utils.Fail(c, http.StatusUnauthorized, utils.StatUnauthorized, "token无效或已过期", nil)
+		return
+	}
+	conversationID, err := strconv.ParseInt(strings.TrimSpace(c.Param("conversation_id")), 10, 64)
+	if err != nil || conversationID <= 0 {
+		utils.Fail(c, http.StatusOK, utils.StatInvalidParam, "conversation_id 必须是正整数", nil)
+		return
+	}
+
+	rows, err := models.DeleteLLMConversationByIDAndUser(conversationID, userID)
+	if err != nil {
+		utils.Fail(c, http.StatusOK, utils.StatDatabaseError, "删除会话失败", err)
+		return
+	}
+	if rows == 0 {
+		utils.Fail(c, http.StatusOK, utils.StatNotFound, "会话不存在", nil)
+		return
+	}
+
+	utils.SuccessMessage(c, "删除成功")
+}
+
 // parseUserID 统一处理鉴权中间件写入 user_id 的多种类型。
 func parseUserID(c *gin.Context) (int64, bool) {
 	v, ok := c.Get("user_id")
